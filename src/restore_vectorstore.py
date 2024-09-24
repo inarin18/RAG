@@ -6,7 +6,7 @@ from langchain_community.vectorstores import Chroma
 from utils import load_config
 
 
-def load_vectorstore(persist_directory):
+def load_vectorstore(persist_directory) -> Chroma:
     embeddings = OpenAIEmbeddings()
     vectorstore = Chroma(
         persist_directory=persist_directory,
@@ -26,10 +26,20 @@ def main():
     loaded_vectorstore = load_vectorstore(PERSIST_DIRECTORY)
     
     query = "骸骨男の正体は誰ですか？作中で言及されている氏名で答えること。"
-    results = loaded_vectorstore.similarity_search(query, k=5)
-    print(f"\n'{query}' に類似する上位5件のドキュメント:")
-    for i, doc in enumerate(results, 1):
-        print(f"{i}. {doc.page_content[:100]}...")  # 最初の100文字を表示
+    results = loaded_vectorstore.similarity_search_with_score(
+        query, 
+        k=5,
+        filter=None
+    )
+    
+    # chunk_indexでソート
+    sorted_results = sorted(results, key=lambda x: x[0].metadata.get('chunk_index', 0))
+    
+    print(f"\n'{query}' に類似する上位5件のドキュメント (chunk_index順):")
+    for i, (doc, score) in enumerate(sorted_results[:5], 1):
+        chunk_index = doc.metadata.get('chunk_index', 'N/A')
+        similarity = 1 - score
+        print(f"{i}. [Chunk {chunk_index}] - [Similarity {similarity:.4f}] \n  {doc.page_content[:100]}...")  # 最初の100文字を表示
     
     
 if __name__ == '__main__':

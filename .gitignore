@@ -4,3 +4,5 @@ db/vs_cnk_*_ovlp_*/
 *.pkl
 chroma.sqlite3
 index/
+
+__pycache__/

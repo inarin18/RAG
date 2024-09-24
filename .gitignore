@@ -1,0 +1,6 @@
+db/vs_cnk_*_ovlp_*/
+*.parquet
+*.bin
+*.pkl
+chroma.sqlite3
+index/

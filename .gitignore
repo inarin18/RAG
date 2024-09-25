@@ -1,3 +1,4 @@
+db/graphrag/
 db/vs_cnk_*_ovlp_*/
 *.parquet
 *.bin

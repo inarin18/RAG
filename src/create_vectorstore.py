@@ -7,7 +7,7 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 
-from utils import setup_logging, load_config
+from modules.utils import setup_logging, load_config
 
 
 def main():

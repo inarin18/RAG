@@ -3,7 +3,7 @@ import os
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 
-from utils import load_config
+from modules.utils import load_config
 
 
 def load_vectorstore(persist_directory) -> Chroma:

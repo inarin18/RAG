@@ -21,7 +21,8 @@ from _graphrag.keywords_chain import generate_keywords_chains_from_graphrag
 
 def generate_ansewr(
         idx: int,
-        model: ChatOpenAI | ChatAnthropic, 
+        conductor: ChatOpenAI | ChatAnthropic,
+        extractor: ChatOpenAI | ChatAnthropic, 
         prompt: ChatPromptTemplate, 
         query: str, 
         db_dir: os.path, 
@@ -38,9 +39,12 @@ def generate_ansewr(
     with open(most_relevant_doc_path, 'r', encoding='shift-jis') as f:
         most_relevant_doc = f.read()
     
-    # keywords_chains = generate_keywords_chains_from_graphrag()
+    keywords_chains = generate_keywords_chains_from_graphrag(
+        extractor=extractor,
+        query=query
+    )
 
-    results = model.invoke(
+    results = conductor.invoke(
         input=prompt.format_messages(
             query=query,
             all_text=most_relevant_doc,
@@ -65,12 +69,19 @@ def main():
     
     PERSIST_DIRECTORY = ROOT_DIR + 'db/vs_cnk_{}_ovlp_{}'.format(config['chunk_size'], config['chunk_overlap'])
     
-    model_with_tool = ChatModel(
-        provider = config['model_provider'],
-        model_name = config['model_name'],
-        temperature = config['temperature'],
-        max_tokens = config['max_tokens'],
+    conductor = ChatModel(
+        provider = config['conductor']['model_provider'],
+        model_name = config['conductor']['model_name'],
+        temperature = config['conductor']['temperature'],
+        max_tokens = config['conductor']['max_tokens'],
     ).fetch_model().bind_tools([config['tools']['generate_answer']])
+    
+    extrator = ChatModel(
+        provider = config['extractor']['model_provider'],
+        model_name = config['extractor']['model_name'],
+        temperature = config['extractor']['temperature'],
+        max_tokens = config['extractor']['max_tokens'],    
+    ).fetch_model().bind_tools([config['tools']['extracting_keywords']]) 
     
     queries = fetch_queries(DATA_DIR)[0:1]
     
@@ -80,7 +91,8 @@ def main():
             executor.submit(
                 generate_ansewr, 
                 idx = idx,
-                model = model_with_tool, 
+                conductor = conductor, 
+                extractor = extrator,
                 prompt = chat_prompt, 
                 query = query, 
                 db_dir = PERSIST_DIRECTORY,
@@ -95,6 +107,7 @@ def main():
             
     sorted_results = sorted(results, key=lambda x: x[0])
     for idx, query, contexts, answer, evidence in sorted_results:
+        print()
         print(f"no.{idx} Query: {query}")
         print(f"    Answer: {answer}")
         print(f"    Evidence: {evidence}")

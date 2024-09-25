@@ -48,6 +48,7 @@ def generate_ansewr(
         input=prompt.format_messages(
             query=query,
             all_text=most_relevant_doc,
+            keywords_chains=keywords_chains,
             contexts=contexts
         )
     )

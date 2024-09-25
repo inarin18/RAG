@@ -17,7 +17,13 @@ You should provide a correct, exact answer to the query and evidence.
         Use the contexts.
     </constraint>
     <constraint>
-        Answer to the query shortly and correctly.
+        keywords-chains mean the relationship between the keywords.
+    </constraint>
+    <constraint>
+        Use the keywords-chains.
+    </constraint>
+    <constraint>
+        Answer to the query **shortly** and correctly.
     </constraint>
     <constraint>
         If there are no evidence to answer for the query, then you should output "質問誤り" only.
@@ -26,6 +32,9 @@ You should provide a correct, exact answer to the query and evidence.
 <contexts>
 {contexts}
 </contexts>
+<keywords-chains>
+{keywords_chains}
+</keywords-chains>
 <all_text>
 {all_text}
 </all_text>

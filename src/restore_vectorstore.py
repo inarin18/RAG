@@ -1,18 +1,8 @@
 import os
 
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
-
+from modules.db import load_vectorstore
 from modules.utils import load_config
 
-
-def load_vectorstore(persist_directory) -> Chroma:
-    embeddings = OpenAIEmbeddings()
-    vectorstore = Chroma(
-        persist_directory=persist_directory,
-        embedding_function=embeddings
-    )
-    return vectorstore
 
 def main():
     

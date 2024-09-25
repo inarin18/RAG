@@ -15,9 +15,30 @@ chunk_overlap: 200
 model_provider: anthropic
 model_name: claude-3-5-sonnet-20240620
 temperature: 0
-max_tokens: 50
+max_tokens: 500
 max_workers: 3
 
 # RAG
 top_k: 2
 is_ordinal: false
+
+# tool call
+tools:
+  generate_answer:
+    type: function
+    function:
+      name: generate_answer
+      description: "Generate answer and evidence from query"
+      parameters: 
+        type: object
+        properties:
+          answer:
+            type: string
+            description: "Answer to the question"
+          evidence:
+            type: string
+            description: "Evidence for the answer"
+        required:
+          - answer
+          - evidence
+  pass: pass

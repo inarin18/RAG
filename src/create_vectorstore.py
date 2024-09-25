@@ -3,7 +3,7 @@ import yaml
 import logging
 
 from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import CharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 
@@ -45,7 +45,11 @@ def main():
     logger.info(f"Loaded {len(documents)} documents")
     
     logger.info("Splitting documents into chunks")
-    splitter = CharacterTextSplitter(chunk_size=config['chunk_size'], chunk_overlap=config['chunk_overlap'])
+    splitter = RecursiveCharacterTextSplitter(
+        separators=config['separators'],
+        chunk_size=config['chunk_size'], 
+        chunk_overlap=config['chunk_overlap']
+    )
     texts = splitter.split_documents(documents)
     
     # add chunk index to metadata

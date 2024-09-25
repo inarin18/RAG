@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
+from langchain.prompts import ChatPromptTemplate
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from modules.utils import setup_logging, load_config
@@ -17,7 +18,14 @@ from modules.db import fetch_contexts_from_db
 from prompts.base_prompt import chat_prompt
 
 
-def generate_ansewr(model, prompt, query, db_dir, top_k, is_ordinal):
+def generate_ansewr(
+        model: ChatOpenAI | ChatAnthropic, 
+        prompt: ChatPromptTemplate, 
+        query: str, 
+        db_dir: os.path, 
+        top_k: int, 
+        is_ordinal: bool
+    ) -> tuple[str, list, str]:
     
     contexts: list = fetch_contexts_from_db(db_dir, query, top_k, is_ordinal)
 

@@ -5,7 +5,7 @@ from langchain.prompts import HumanMessagePromptTemplate
 
 system_prompt_template = """
 <role>
-You are a helpful assistant.
+You are a professional novelist.
 We give you a query about the novels. 
 You should provide a correct, exact answer to the query and evidence.
 </role>
@@ -17,12 +17,18 @@ You should provide a correct, exact answer to the query and evidence.
         Use the contexts.
     </constraint>
     <constraint>
+        Answer to the query shortly and correctly.
+    </constraint>
+    <constraint>
         If there are no evidence to answer for the query, then you should output "質問誤り" only.
     </constraint>
 </constraints>
 <contexts>
 {contexts}
 </contexts>
+<all_text>
+{all_text}
+</all_text>
 """
 
 chat_prompt = ChatPromptTemplate.from_messages([

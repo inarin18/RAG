@@ -16,9 +16,11 @@ from modules.chat_models import ChatModel
 from modules.query import fetch_queries
 from modules.db import fetch_contexts_from_db
 from prompts.base_prompt import chat_prompt
+from _graphrag.keywords_chain import generate_keywords_chains_from_graphrag
 
 
 def generate_ansewr(
+        idx: int,
         model: ChatOpenAI | ChatAnthropic, 
         prompt: ChatPromptTemplate, 
         query: str, 
@@ -27,16 +29,29 @@ def generate_ansewr(
         is_ordinal: bool
     ) -> tuple[str, list, str]:
     
-    contexts: list = fetch_contexts_from_db(db_dir, query, top_k, is_ordinal)
+    # クエリに関連する文脈を取得
+    contexts_with_metadata: list = fetch_contexts_from_db(db_dir, query, top_k, is_ordinal)
+    contexts = [context[0].page_content for context in contexts_with_metadata]
+    
+    # 最も関連性の高い文書を取得
+    most_relevant_doc_path = contexts_with_metadata[0][0].metadata['source']
+    with open(most_relevant_doc_path, 'r', encoding='shift-jis') as f:
+        most_relevant_doc = f.read()
+    
+    # keywords_chains = generate_keywords_chains_from_graphrag()
 
     results = model.invoke(
         input=prompt.format_messages(
             query=query,
+            all_text=most_relevant_doc,
             contexts=contexts
         )
     )
     
-    return query, contexts, results.content
+    answer = results.content[1]['input']['answer']
+    evidence = results.content[1]['input']['evidence']
+    
+    return idx, query, contexts, answer, evidence
 
 
 def main():
@@ -50,37 +65,39 @@ def main():
     
     PERSIST_DIRECTORY = ROOT_DIR + 'db/vs_cnk_{}_ovlp_{}'.format(config['chunk_size'], config['chunk_overlap'])
     
-    model = ChatModel(
+    model_with_tool = ChatModel(
         provider = config['model_provider'],
         model_name = config['model_name'],
         temperature = config['temperature'],
         max_tokens = config['max_tokens'],
-    ).fetch_model()
+    ).fetch_model().bind_tools([config['tools']['generate_answer']])
     
-    queries = fetch_queries(DATA_DIR)[1:2]
+    queries = fetch_queries(DATA_DIR)[0:1]
     
     with ThreadPoolExecutor(max_workers=config['max_workers']) as executor:
         
         futures = [
             executor.submit(
                 generate_ansewr, 
-                model = model, 
+                idx = idx,
+                model = model_with_tool, 
                 prompt = chat_prompt, 
                 query = query, 
                 db_dir = PERSIST_DIRECTORY,
                 top_k = config['top_k'],
                 is_ordinal = config['is_ordinal']
-            ) for query in queries
+            ) for idx, query in enumerate(queries)
         ]
         
         results = []
         for future in tqdm(concurrent.futures.as_completed(futures), total=len(queries), desc="クエリ処理中"):
             results.append(future.result())
-    
-    for query, contexts, result in results:
-        print(f"Query: {query}")
-        pprint.pprint(contexts)
-        print(f"    Result: {result}")
+            
+    sorted_results = sorted(results, key=lambda x: x[0])
+    for idx, query, contexts, answer, evidence in sorted_results:
+        print(f"no.{idx} Query: {query}")
+        print(f"    Answer: {answer}")
+        print(f"    Evidence: {evidence}")
             
     
 

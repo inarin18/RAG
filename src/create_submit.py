@@ -1,4 +1,5 @@
 import os
+import time
 import csv
 import pprint
 
@@ -54,7 +55,10 @@ def generate_ansewr(
     )
     
     answer = results.content[1]['input']['answer']
-    evidence = results.content[1]['input']['evidence']
+    try:
+        evidence = results.content[1]['input']['evidence']
+    except KeyError:
+        evidence = ''
     
     return idx, query, contexts, answer, evidence
 
@@ -84,7 +88,7 @@ def main():
         max_tokens = config['extractor']['max_tokens'],    
     ).fetch_model().bind_tools([config['tools']['extracting_keywords']]) 
     
-    queries = fetch_queries(DATA_DIR)[0:1]
+    queries = fetch_queries(DATA_DIR)
     
     with ThreadPoolExecutor(max_workers=config['max_workers']) as executor:
         
@@ -105,15 +109,22 @@ def main():
         results = []
         for future in tqdm(concurrent.futures.as_completed(futures), total=len(queries), desc="クエリ処理中"):
             results.append(future.result())
-            
-    sorted_results = sorted(results, key=lambda x: x[0])
-    for idx, query, contexts, answer, evidence in sorted_results:
-        print()
-        print(f"no.{idx} Query: {query}")
-        print(f"    Answer: {answer}")
-        print(f"    Evidence: {evidence}")
-            
     
+    sorted_results = sorted(results, key=lambda x: x[0])
+    
+    SUBMIT_DIR = os.path.join(ROOT_DIR, 'submit')
+    with open(os.path.join(SUBMIT_DIR, 'predictions.csv'), 'w', newline='') as f:
+    
+        for idx, query, contexts, answer, evidence in sorted_results:
+            writer = csv.writer(f)
+            writer.writerow([idx+1, answer, evidence])
+    
+    SUBMIT_BACKUP_DIR = os.path.join(ROOT_DIR, 'data', 'backup')
+    with open(os.path.join(SUBMIT_BACKUP_DIR, f'predictions_{time.time()}.csv'), 'w', newline='') as f:
+    
+        for idx, query, contexts, answer, evidence in sorted_results:
+            writer = csv.writer(f)
+            writer.writerow([idx+1, answer, evidence.replace('\n', ' ')])
 
 
 

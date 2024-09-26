@@ -7,3 +7,5 @@ chroma.sqlite3
 index/
 
 __pycache__/
+
+*.zip

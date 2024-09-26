@@ -31,6 +31,8 @@ def generate_ansewr(
         is_ordinal: bool
     ) -> tuple[str, list, str]:
     
+    time.sleep(20)
+    
     # クエリに関連する文脈を取得
     contexts_with_metadata: list = fetch_contexts_from_db(db_dir, query, top_k, is_ordinal)
     contexts = [context[0].page_content for context in contexts_with_metadata]
@@ -54,10 +56,16 @@ def generate_ansewr(
         )
     )
     
-    answer = results.content[1]['input']['answer']
+    try:
+        answer = results.content[1]['input']['answer']
+    except :
+        print(results)
+        answer = '質問誤り'
     try:
         evidence = results.content[1]['input']['evidence']
     except KeyError:
+        evidence = ''
+    except TypeError:
         evidence = ''
     
     return idx, query, contexts, answer, evidence
@@ -124,7 +132,11 @@ def main():
     
         for idx, query, contexts, answer, evidence in sorted_results:
             writer = csv.writer(f)
-            writer.writerow([idx+1, answer, evidence.replace('\n', ' ')])
+            writer.writerow([
+                idx+1, 
+                answer.replace('\n', ' '), 
+                evidence.replace('\n', ' ')
+            ])
 
 
 

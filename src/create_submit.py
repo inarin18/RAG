@@ -64,9 +64,9 @@ def generate_ansewr(
     try:
         evidence = results.content[1]['input']['evidence']
     except KeyError:
-        evidence = ''
+        evidence = 'なし'
     except TypeError:
-        evidence = ''
+        evidence = 'なし'
     
     return idx, query, contexts, answer, evidence
 
@@ -125,7 +125,11 @@ def main():
     
         for idx, query, contexts, answer, evidence in sorted_results:
             writer = csv.writer(f)
-            writer.writerow([idx+1, answer, evidence])
+            writer.writerow([
+                idx+1, 
+                answer.replace('\n', ' '), 
+                evidence.replace('\n', ' ')
+            ])
     
     SUBMIT_BACKUP_DIR = os.path.join(ROOT_DIR, 'data', 'backup')
     with open(os.path.join(SUBMIT_BACKUP_DIR, f'predictions_{time.time()}.csv'), 'w', newline='') as f:

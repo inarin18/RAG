@@ -2,17 +2,24 @@
 log_level: INFO
 
 # ベクトルストア作成
-separators: 
-  - "\n\n"
-  - "。"
-  - "、"
-  - "\n"
-chunk_size: 1000
-chunk_overlap: 200
+split_docs:
+  use_llm: true
+  separators: 
+    - "\n\n"
+    - "。"
+    - "、"
+    - "\n"
+  chunk_size: 1000
+  chunk_overlap: 200
 
 max_workers: 3
 
 # 推論
+chunker:
+  model_provider: anthropic
+  model_name: claude-3-5-sonnet-20240620
+  temperature: 0
+  max_tokens: 500
 conductor:
   model_provider: anthropic
   model_name: claude-3-5-sonnet-20240620

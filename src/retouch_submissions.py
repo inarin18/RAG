@@ -24,9 +24,18 @@ def main():
         max_tokens = config['shortener']['max_tokens'],
     ).fetch_model().bind_tools([config['tools']['shorten_answer']])
     
-    with open(os.path.join(DATA_DIR, 'backup', 'predictions_1727312336.4150026.csv'), 'r') as f:
+    with open(os.path.join(DATA_DIR, 'backup', 'predictions_03_unshorten.csv'), 'r') as f:
         reader = csv.reader(f)
         rows = list(reader)
+    
+    # csv を初期化
+    curr_time = time.time()
+    with open(os.path.join(DATA_DIR, 'backup', 'predictions_{}.csv'.format(curr_time)), 'w') as f:
+        writer = csv.writer(f)
+        writer.writerow([])
+    with open(os.path.join(ROOT_DIR, 'submit', 'predictions.csv'), 'w') as f:
+        writer = csv.writer(f)
+        writer.writerow([])
         
     queries = fetch_queries(DATA_DIR)  
     for query, row in zip(queries, rows):
@@ -50,7 +59,7 @@ def main():
         
         short_evidence = evidence if evidence != "" else 'なし'
         
-        with open(os.path.join(DATA_DIR, 'backup', 'predictions_{}.csv'.format(time.time())), 'a') as f:
+        with open(os.path.join(DATA_DIR, 'backup', 'predictions_{}.csv'.format(curr_time)), 'a') as f:
             writer = csv.writer(f)
             writer.writerow([idx, short_answer, short_evidence])
             

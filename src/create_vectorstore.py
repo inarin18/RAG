@@ -35,6 +35,8 @@ def main():
     create_vectorstore_from_directory(
         docs_dir = DOCS_DIR,
         use_llm  = config['split_docs']['use_llm'],
+        already_chunked_at_local=config['split_docs']['already_chunked_at_local'],
+        chunks_dir_to_restore=os.path.join(ROOT_DIR, 'DOCS', config['split_docs']['chunks_dir_to_restore']),
         persist_directory = PERSIST_DIRECTORY,
         chunker = chunker,
         split_config = config['split_docs']

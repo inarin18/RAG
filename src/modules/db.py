@@ -1,5 +1,7 @@
 import os
 
+from itertools import islice
+
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import OpenAIEmbeddings
@@ -8,6 +10,11 @@ from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from modules.document_processing import split_documents_using_llm
+
+
+def _batch(iterable, size):
+    iterator = iter(iterable)
+    return iter(lambda: list(islice(iterator, size)), [])
 
 
 def create_vectorstore_from_directory(
@@ -27,7 +34,7 @@ def create_vectorstore_from_directory(
                 relative_path = os.path.relpath(file_path, docs_dir)
                 
                 # load documents from file
-                loader = TextLoader(file_path, encoding='shift-jis')
+                loader = TextLoader(file_path, encoding='utf-8')
                 docs = loader.load()
                 
                 # add source metadata to each document
@@ -53,12 +60,19 @@ def create_vectorstore_from_directory(
     
     # create vectorstore  
     embeddings = OpenAIEmbeddings()
-    Chroma.from_documents(
-        embedding=embeddings, 
-        documents=chunked_documents,
-        persist_directory=persist_directory
-    )
-
+    
+    for idx, chunked_doc_batch in enumerate(_batch(chunked_documents, split_config['batch_size'])):
+        print(f"Processing batch {idx}")
+        
+        if idx == 0:
+            vectorstore = Chroma.from_documents(
+                embedding=embeddings, 
+                documents=chunked_doc_batch,
+                persist_directory=persist_directory
+            )
+            
+        else:
+            vectorstore.add_documents(chunked_doc_batch)
 
 def load_vectorstore(persist_directory: os.path) -> Chroma:
     embeddings = OpenAIEmbeddings()

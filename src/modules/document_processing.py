@@ -1,4 +1,5 @@
 import os
+import json
 from typing import Dict, List
 from pprint import pprint
 
@@ -18,37 +19,62 @@ def split_documents_using_llm(
     new_docs = []
     for doc in documents:
         
+        # get base document path
+        doc_path: os.path = doc.metadata['source']
+        doc_path_contents = doc_path.split('/')
+        base_doc_dir = "/".join(doc_path_contents[:-2])
+        base_doc_name = doc_path_contents[-1].split('.')[0]
+        
+        print(f"\n@ Splitting document: {base_doc_name}")
+        
         # split document into short documents
-        short_docs = doc.page_content.split('\n\n')
+        short_docs = doc.page_content\
+            .replace('\n\n\n\n\n\n', '\n\n')\
+            .replace('\n\n\n\n\n', '\n\n')\
+            .replace('\n\n\n\n', '\n\n')\
+            .replace('\n\n\n', '\n\n')\
+            .split('\n\n')
         short_docs = [Document(page_content=short_doc, metadata=doc.metadata) for short_doc in short_docs]
         
-        for short_doc in short_docs:
+        for short_doc_idx, short_doc in enumerate(short_docs):
             
-            print(len(short_doc.page_content))
+            chunk_file_dir = os.path.join(base_doc_dir, 'chunked_docs', base_doc_name, f'chunk_{short_doc_idx}')  
+            os.makedirs(chunk_file_dir, exist_ok=True)
             
-            results: BaseMessage = chunker.invoke(
-                input=chunker_prompt.format_messages(
-                    document=short_doc.page_content
-                )
-            )
+            print(len(short_doc.page_content), end=' ') 
             
+            prompt: list[BaseMessage] = chunker_prompt.format_messages(document=short_doc.page_content)
+            results: BaseMessage = chunker.invoke(input=prompt)
+            
+            with open(os.path.join(chunk_file_dir, 'results.json'), 'w') as f:
+                retval = {
+                    'prompt': prompt[0].content.split('\n'),
+                    'given_document' : prompt[1].content.split('\n'),
+                    'results': results.to_json()
+                }
+                json.dump(retval, f, indent=4, ensure_ascii=False)
+            
+            # check if chunking was successful
             if results.response_metadata['stop_reason'] == 'tool_use':
                 try:
                     chunks = results.tool_calls[0]['args']['chunks']
                 except:
-                    print(results)
+                    print("\n", results)
                     raise ValueError("Chunking failed")
-            
+            elif results.response_metadata['stop_reason'] == 'end_turn':
+                print('- reached end of turn')
+                continue
             elif results.response_metadata['stop_reason'] == 'max_tokens':
                 raise ValueError("Chunking failed - max tokens reached")
-            
-            elif results.response_metadata['stop_reason'] == 'end_turn':
-                continue
-                
             else:
                 raise ValueError("Chunking failed - unknown reason -> ", results.response_metadata['stop_reason'])
                 
-            for chunk in chunks:
+            print('length of the chunks =', len(chunks))
+            for chunk_idx, chunk in enumerate(chunks):
+                
+                if len(chunk) <= 5:
+                    print(f"Chunk {chunk_idx} is too short, skipping")
+                    raise ValueError("Chunk is too short")
                 
                 if isinstance(chunk, dict):
                     chunk_content = " ".join(chunk.values())
@@ -57,6 +83,11 @@ def split_documents_using_llm(
                 
                 new_doc = Document(page_content=chunk_content, metadata=doc.metadata)
                 new_docs.append(new_doc)
+                
+                # save chunk to file
+                chunk_file_name = f"{base_doc_name}_chunk_{short_doc_idx}_{chunk_idx}.txt"
+                with open(os.path.join(chunk_file_dir, chunk_file_name), 'w', encoding='utf-8') as f:
+                    f.write(chunk_content)
         
     return new_docs
 

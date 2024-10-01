@@ -39,7 +39,7 @@ def generate_ansewr(
     
     # 最も関連性の高い文書を取得
     most_relevant_doc_path = contexts_with_metadata[0][0].metadata['source']
-    with open(most_relevant_doc_path, 'r', encoding='shift-jis') as f:
+    with open(most_relevant_doc_path, 'r', encoding='utf-8') as f:
         most_relevant_doc = f.read()
     
     keywords_chains = generate_keywords_chains_from_graphrag(
@@ -80,7 +80,7 @@ def main():
     
     config = load_config(os.path.join(CONF_DIR, 'config.yml'))
     
-    PERSIST_DIRECTORY = ROOT_DIR + 'db/vs_cnk_{}_ovlp_{}'.format(config['chunk_size'], config['chunk_overlap'])
+    PERSIST_DIRECTORY = os.path.join(ROOT_DIR, 'db', config['persist_dir_name'])
     
     conductor = ChatModel(
         provider = config['conductor']['model_provider'],

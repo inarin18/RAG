@@ -1,14 +1,13 @@
+import sys
 import os
 import json
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 from pprint import pprint
 
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_core.documents import Document
 from langchain_core.messages import BaseMessage
-
-from prompts.chunker_prompt import chunker_prompt 
 
 
 def fetch_doc_dir_and_name(doc: Document) -> Tuple[str, str]:
@@ -21,7 +20,7 @@ def fetch_doc_dir_and_name(doc: Document) -> Tuple[str, str]:
     return base_doc_dir, base_doc_name
 
 
-def split_docs_into_short_docs(doc: Document) -> List[Document]:
+def split_docs_into_short_docs(doc: Document) -> list[Document]:
     
     short_docs = doc.page_content\
         .replace('\n\n\n\n\n\n', '\n\n')\
@@ -35,7 +34,7 @@ def split_docs_into_short_docs(doc: Document) -> List[Document]:
     return short_docs
 
 
-def validate_chunking_results_then_get_chunks(results: BaseMessage) -> List[str|dict] | None:
+def validate_chunking_results_then_get_chunks(results: BaseMessage) -> list[str|dict] | None:
     if results.response_metadata['stop_reason'] == 'tool_use':
         try:
             chunks = results.tool_calls[0]['args']['chunks']
@@ -49,6 +48,10 @@ def validate_chunking_results_then_get_chunks(results: BaseMessage) -> List[str|
         raise ValueError("Chunking failed - max tokens reached")
     else:
         raise ValueError("Chunking failed - unknown reason -> ", results.response_metadata['stop_reason'])
+    
+    # 稀に chunks が文字列で返ってくることがあるので、リストに変換
+    if isinstance(chunks, str):
+        chunks = chunks.replace('[', '').replace(']', '').split(',')
 
     return chunks
 
@@ -84,8 +87,8 @@ def validate_chunk_content_then_get_chunk(chunk_idx: int, chunk: str | dict) -> 
 
 def split_documents_using_llm(
         chunker: ChatOpenAI | ChatAnthropic, 
-        documents: List[Document], 
-    ) -> List[Document]:
+        documents: list[Document], 
+    ) -> list[Document]:
     
     new_docs = []
     for doc in documents:
@@ -94,7 +97,7 @@ def split_documents_using_llm(
         
         print(f"\n@ Splitting document: {base_doc_name}")
         
-        short_docs: List[Document] = split_docs_into_short_docs(doc)
+        short_docs: list[Document] = split_docs_into_short_docs(doc)
         
         for short_doc_idx, short_doc in enumerate(short_docs):
             
@@ -126,30 +129,92 @@ def split_documents_using_llm(
     return new_docs
 
 
-
-if __name__ == '__main__':
-    
-    from langchain_community.document_loaders import TextLoader
-    
-    ROOT_DIR = os.environ.get('RAG_ROOT')
-    DOCS_DIR = os.path.join(ROOT_DIR, 'DOCS', 'novels')
-    CONF_DIR = os.path.join(ROOT_DIR, 'conf')
+def fetch_documents_from_directory(doc_dir: os.path) -> list[Document]:
     
     documents = []
-    for root, dirs, files in os.walk(DOCS_DIR):
+    for root, dirs, files in os.walk(doc_dir):
         for file in files:
             if file.endswith('.txt'):
                 file_path = os.path.join(root, file)
-                relative_path = os.path.relpath(file_path, DOCS_DIR)
+                relative_path = os.path.relpath(file_path, doc_dir)
                 
                 # load documents from file
-                loader = TextLoader(file_path, encoding='shift-jis')
+                loader = TextLoader(file_path, encoding='utf-8')
                 docs = loader.load()
                 
                 # add source metadata to each document
                 for doc in docs:
                     doc.metadata['source'] = relative_path
-                    
-                documents.extend(loader.load())
                 
-    print(documents[0].page_content[:100])
+                documents.extend(loader.load())
+    
+    return documents
+
+
+def restore_chunks_from_directory(chunk_file_dir: os.path) -> list[Document]:
+    
+    chunked_docs = []
+    for doc_dir in os.listdir(chunk_file_dir):
+        sorted_chunk_dirs = sorted(
+            os.listdir(
+                os.path.join(chunk_file_dir, doc_dir)
+            ), 
+            key=lambda x: int(x.split('_')[-1])
+        )
+        for chunk_dir in sorted_chunk_dirs:
+            for root, _, files in os.walk(os.path.join(chunk_file_dir, doc_dir, chunk_dir)):
+                for file in files:
+                    if file.endswith('.txt'):
+                        file_path = os.path.join(root, file)
+                        
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            chunk_content = f.read()
+                        
+                        chunked_docs.append(
+                            Document(
+                                page_content=chunk_content, 
+                                metadata={'source': file_path}
+                            )
+                        )
+    
+    return chunked_docs
+
+
+
+if __name__ == '__main__':
+    
+    from langchain_community.document_loaders import TextLoader
+    
+    from utils import setup_logging, load_config
+    from chat_models import ChatModel
+    
+    
+    ROOT_DIR = os.environ.get('RAG_ROOT')
+    DOCS_DIR = os.path.join(ROOT_DIR, 'DOCS', 'chunked_docs')
+    CONF_DIR = os.path.join(ROOT_DIR, 'conf')
+    
+    sys.path.append(os.path.join(ROOT_DIR, 'src'))
+    from prompts.chunker_prompt import chunker_prompt 
+    
+    config = load_config(os.path.join(CONF_DIR, 'config.yml'))
+    
+    if config['split_docs']['use_llm']:
+        chunker = ChatModel(
+            role = 'chunker',
+            provider = config['chunker']['model_provider'],
+            model_name = config['chunker']['model_name'],
+            temperature = config['chunker']['temperature'],
+            max_tokens = config['chunker']['max_tokens'],
+        ).fetch_model().bind_tools([config['tools']['for_embedding_chunks']])
+    else:
+        chunker = None
+    
+    # documents = fetch_documents_from_directory(DOCS_DIR)
+    # chunked_documents = split_documents_using_llm(chunker, documents)
+    
+    chunks = restore_chunks_from_directory(DOCS_DIR)
+    
+    print(len(chunks))
+
+
+

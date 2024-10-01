@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from pprint import pprint
 
 from langchain_openai import ChatOpenAI
@@ -11,6 +11,77 @@ from langchain_core.messages import BaseMessage
 from prompts.chunker_prompt import chunker_prompt 
 
 
+def fetch_doc_dir_and_name(doc: Document) -> Tuple[str, str]:
+    
+    doc_path: os.path = doc.metadata['source']
+    doc_path_contents = doc_path.split('/')
+    base_doc_dir = "/".join(doc_path_contents[:-2])
+    base_doc_name = doc_path_contents[-1].split('.')[0]
+    
+    return base_doc_dir, base_doc_name
+
+
+def split_docs_into_short_docs(doc: Document) -> List[Document]:
+    
+    short_docs = doc.page_content\
+        .replace('\n\n\n\n\n\n', '\n\n')\
+        .replace('\n\n\n\n\n', '\n\n')\
+        .replace('\n\n\n\n', '\n\n')\
+        .replace('\n\n\n', '\n\n')\
+        .split('\n\n')
+    
+    short_docs = [Document(page_content=short_doc, metadata=doc.metadata) for short_doc in short_docs]
+    
+    return short_docs
+
+
+def validate_chunking_results_then_get_chunks(results: BaseMessage) -> List[str|dict] | None:
+    if results.response_metadata['stop_reason'] == 'tool_use':
+        try:
+            chunks = results.tool_calls[0]['args']['chunks']
+        except:
+            print("\n", results)
+            raise ValueError("Chunking failed")
+    elif results.response_metadata['stop_reason'] == 'end_turn':
+        print('- reached end of turn')
+        return None
+    elif results.response_metadata['stop_reason'] == 'max_tokens':
+        raise ValueError("Chunking failed - max tokens reached")
+    else:
+        raise ValueError("Chunking failed - unknown reason -> ", results.response_metadata['stop_reason'])
+
+    return chunks
+
+
+def genarate_results_using_chunker(short_doc: Document, chunker: ChatOpenAI | ChatAnthropic, chunk_file_dir: os.path) -> BaseMessage:
+    
+    prompt: list[BaseMessage] = chunker_prompt.format_messages(document=short_doc.page_content)
+    results: BaseMessage = chunker.invoke(input=prompt)
+    
+    with open(os.path.join(chunk_file_dir, 'results.json'), 'w') as f:
+        retval = {
+            'prompt': prompt[0].content.split('\n'),
+            'given_document' : prompt[1].content.split('\n'),
+            'results': results.to_json()
+        }
+        json.dump(retval, f, indent=4, ensure_ascii=False)
+        
+    return results
+
+
+def validate_chunk_content_then_get_chunk(chunk_idx: int, chunk: str | dict) -> str:
+    if isinstance(chunk, dict):
+        chunk_content = " ".join(chunk.values())
+    else:
+        chunk_content = chunk
+    
+    if len(chunk_content) <= 5:
+        print(f"Chunk {chunk_idx} is too short, skipping")
+        raise ValueError("Chunk is too short")
+    
+    return chunk_content
+
+
 def split_documents_using_llm(
         chunker: ChatOpenAI | ChatAnthropic, 
         documents: List[Document], 
@@ -19,22 +90,11 @@ def split_documents_using_llm(
     new_docs = []
     for doc in documents:
         
-        # get base document path
-        doc_path: os.path = doc.metadata['source']
-        doc_path_contents = doc_path.split('/')
-        base_doc_dir = "/".join(doc_path_contents[:-2])
-        base_doc_name = doc_path_contents[-1].split('.')[0]
+        base_doc_dir, base_doc_name = fetch_doc_dir_and_name(doc)
         
         print(f"\n@ Splitting document: {base_doc_name}")
         
-        # split document into short documents
-        short_docs = doc.page_content\
-            .replace('\n\n\n\n\n\n', '\n\n')\
-            .replace('\n\n\n\n\n', '\n\n')\
-            .replace('\n\n\n\n', '\n\n')\
-            .replace('\n\n\n', '\n\n')\
-            .split('\n\n')
-        short_docs = [Document(page_content=short_doc, metadata=doc.metadata) for short_doc in short_docs]
+        short_docs: List[Document] = split_docs_into_short_docs(doc)
         
         for short_doc_idx, short_doc in enumerate(short_docs):
             
@@ -43,43 +103,17 @@ def split_documents_using_llm(
             
             print(len(short_doc.page_content), end=' ') 
             
-            prompt: list[BaseMessage] = chunker_prompt.format_messages(document=short_doc.page_content)
-            results: BaseMessage = chunker.invoke(input=prompt)
-            
-            with open(os.path.join(chunk_file_dir, 'results.json'), 'w') as f:
-                retval = {
-                    'prompt': prompt[0].content.split('\n'),
-                    'given_document' : prompt[1].content.split('\n'),
-                    'results': results.to_json()
-                }
-                json.dump(retval, f, indent=4, ensure_ascii=False)
+            results: BaseMessage = genarate_results_using_chunker(short_doc, chunker, chunk_file_dir)
             
             # check if chunking was successful
-            if results.response_metadata['stop_reason'] == 'tool_use':
-                try:
-                    chunks = results.tool_calls[0]['args']['chunks']
-                except:
-                    print("\n", results)
-                    raise ValueError("Chunking failed")
-            elif results.response_metadata['stop_reason'] == 'end_turn':
-                print('- reached end of turn')
+            chunks = validate_chunking_results_then_get_chunks(results)
+            if chunks is None:
                 continue
-            elif results.response_metadata['stop_reason'] == 'max_tokens':
-                raise ValueError("Chunking failed - max tokens reached")
-            else:
-                raise ValueError("Chunking failed - unknown reason -> ", results.response_metadata['stop_reason'])
                 
             print('length of the chunks =', len(chunks))
             for chunk_idx, chunk in enumerate(chunks):
                 
-                if len(chunk) <= 5:
-                    print(f"Chunk {chunk_idx} is too short, skipping")
-                    raise ValueError("Chunk is too short")
-                
-                if isinstance(chunk, dict):
-                    chunk_content = " ".join(chunk.values())
-                else:
-                    chunk_content = chunk
+                chunk_content = validate_chunk_content_then_get_chunk(chunk_idx, chunk)
                 
                 new_doc = Document(page_content=chunk_content, metadata=doc.metadata)
                 new_docs.append(new_doc)

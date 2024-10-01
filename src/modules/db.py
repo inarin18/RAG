@@ -10,6 +10,7 @@ from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from modules.document_processing import split_documents_using_llm
+from modules.document_processing import restore_chunks_from_directory
 
 
 def _batch(iterable, size):
@@ -20,9 +21,11 @@ def _batch(iterable, size):
 def create_vectorstore_from_directory(
         docs_dir: os.path,
         use_llm: bool,
+        already_chunked_at_local: bool,
         persist_directory: os.path,
         chunker: ChatOpenAI | ChatAnthropic = None,
-        split_config: dict = None
+        split_config: dict = None,
+        chunks_dir_to_restore: os.path = None
     ):
     
     # load documents from directory
@@ -44,7 +47,9 @@ def create_vectorstore_from_directory(
                 documents.extend(loader.load())
 
     # split documents into chunks
-    if use_llm:
+    if already_chunked_at_local:
+        chunked_documents = restore_chunks_from_directory(chunks_dir_to_restore)
+    elif use_llm:
         chunked_documents = split_documents_using_llm(chunker, documents)
     else :
         splitter = RecursiveCharacterTextSplitter(

@@ -1,9 +1,11 @@
 import os
 from typing import Dict, List
+from pprint import pprint
 
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_core.documents import Document
+from langchain_core.messages import BaseMessage
 
 from prompts.chunker_prompt import chunker_prompt 
 
@@ -16,21 +18,46 @@ def split_documents_using_llm(
     new_docs = []
     for doc in documents:
         
-        results: list = chunker.invoke(
-            input=chunker_prompt.format_messages(
-                doc.page_content
-            )
-        )
+        # split document into short documents
+        short_docs = doc.page_content.split('\n\n')
+        short_docs = [Document(page_content=short_doc, metadata=doc.metadata) for short_doc in short_docs]
         
-        try:
-            chunks = results.content[1]['input']['chunks']
-        except:
-            raise ValueError("Chunking failed")
+        for short_doc in short_docs:
             
-        for chunk in chunks:
-            new_doc = Document(page_content=chunk, metadata=doc.metadata)
-            new_docs.append(new_doc)
-    
+            print(len(short_doc.page_content))
+            
+            results: BaseMessage = chunker.invoke(
+                input=chunker_prompt.format_messages(
+                    document=short_doc.page_content
+                )
+            )
+            
+            if results.response_metadata['stop_reason'] == 'tool_use':
+                try:
+                    chunks = results.tool_calls[0]['args']['chunks']
+                except:
+                    print(results)
+                    raise ValueError("Chunking failed")
+            
+            elif results.response_metadata['stop_reason'] == 'max_tokens':
+                raise ValueError("Chunking failed - max tokens reached")
+            
+            elif results.response_metadata['stop_reason'] == 'end_turn':
+                continue
+                
+            else:
+                raise ValueError("Chunking failed - unknown reason -> ", results.response_metadata['stop_reason'])
+                
+            for chunk in chunks:
+                
+                if isinstance(chunk, dict):
+                    chunk_content = " ".join(chunk.values())
+                else:
+                    chunk_content = chunk
+                
+                new_doc = Document(page_content=chunk_content, metadata=doc.metadata)
+                new_docs.append(new_doc)
+        
     return new_docs
 
 

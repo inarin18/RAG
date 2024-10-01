@@ -1,2 +1,4 @@
 idx,features,path,result
-1,"All text search, Simirality Search, GraphRAG, Few-shot prompt, Shortener","data/backup/predictions_first.csv",-0.1583333
+1,"All text search, Simirality Search, GraphRAG, Few-shot prompt, Shortener","data/backup/predictions_01.csv",-0.1583333
+2,"Create VS using llm, Source Suck, All text search, Simirality Search, GraphRAG, Few-shot prompt, Shortener","data/backup/predictions_02_source_suck.csv",x
+3,"Create VS using llm, Source Fixed, All text search, Simirality Search, GraphRAG, Few-shot prompt, Shortener","data/backup/predictions_03_shorten.csv",0.0833333

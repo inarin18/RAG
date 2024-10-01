@@ -4,6 +4,7 @@ log_level: INFO
 # ベクトルストア作成
 split_docs:
   use_llm: true
+  batch_size: 2500
   separators: 
     - "\n\n"
     - "。"
@@ -102,6 +103,6 @@ tools:
             type: array
             items:
               type: string
-            description: "chunks to be embedded"
+            description: "semantic chunks to be embedded"
         required:
           - chunks

@@ -4,6 +4,8 @@ log_level: INFO
 # ベクトルストア作成
 split_docs:
   use_llm: true
+  already_chunked_at_local: true
+  chunks_dir_to_restore: chunked_docs
   batch_size: 2500
   separators: 
     - "\n\n"
@@ -40,6 +42,8 @@ shortener:
 # ベクトルストア検索時の設定
 top_k: 2
 is_ordinal: false
+# persist_dir_name: 'vs_cnk_{chunk_size}_ovlp_{chunk_overlap}'
+persist_dir_name: 'vs_llm_2024-10-02-05-05-24'
 
 # tool call
 tools:

@@ -21,14 +21,14 @@ def main():
         f'vs_cnk_{config['split_docs']['chunk_size']}_ovlp_{config['split_docs']['chunk_overlap']}'
     )
     
-    if config['use_llm']:
+    if config['split_docs']['use_llm']:
         chunker = ChatModel(
             role = 'chunker',
             provider = config['chunker']['model_provider'],
             model_name = config['chunker']['model_name'],
             temperature = config['chunker']['temperature'],
             max_tokens = config['chunker']['max_tokens'],
-        ).fetch_model().bind_tools([config['tools']['chunking']])
+        ).fetch_model().bind_tools([config['tools']['for_embedding_chunks']])
     else:
         chunker = None
     

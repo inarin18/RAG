@@ -9,3 +9,5 @@ index/
 __pycache__/
 
 *.zip
+
+DOCS/chunked_docs/

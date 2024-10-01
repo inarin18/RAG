@@ -43,7 +43,7 @@ shortener:
 top_k: 2
 is_ordinal: false
 # persist_dir_name: 'vs_cnk_{chunk_size}_ovlp_{chunk_overlap}'
-persist_dir_name: 'vs_llm_2024-10-02-05-05-24'
+persist_dir_name: vs_llm_2024-10-02-05-31-22
 
 # tool call
 tools:

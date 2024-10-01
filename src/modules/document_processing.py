@@ -153,6 +153,8 @@ def fetch_documents_from_directory(doc_dir: os.path) -> list[Document]:
 
 def restore_chunks_from_directory(chunk_file_dir: os.path) -> list[Document]:
     
+    base_doc_dir = "/".join(chunk_file_dir.split('/')[:-1])
+    
     chunked_docs = []
     for doc_dir in os.listdir(chunk_file_dir):
         sorted_chunk_dirs = sorted(
@@ -173,7 +175,7 @@ def restore_chunks_from_directory(chunk_file_dir: os.path) -> list[Document]:
                         chunked_docs.append(
                             Document(
                                 page_content=chunk_content, 
-                                metadata={'source': file_path}
+                                metadata={'source': os.path.join(base_doc_dir, 'novels', f'{doc_dir}.txt')}
                             )
                         )
     
